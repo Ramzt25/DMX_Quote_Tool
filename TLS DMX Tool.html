@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DMX Tool</title>
+  <style>
+    /* PAGE BACKGROUND & CONTAINER */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f2f4f7;
+      font-family: Arial, sans-serif;
+      color: #333;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    /* HEADER & TITLE (NO IMAGE) */
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 {
+      color: #1E3A5F; margin: 0; font-size: 42px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase;
+    }
+
+    /* TABLE STYLING */
+    table {
+      width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px;
+      background-color: #fff; border: 1px solid #ccc; border-radius: 6px; overflow: hidden;
+    }
+    thead tr { background-color: #1E3A5F; color: #fff; }
+    th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { font-weight: bold; }
+    .total-row td { font-weight: bold; background-color: #e2e6ea; }
+
+    /* FORM ELEMENTS & BUTTONS */
+    input[type="text"], input[type="date"], input[type="number"], select, button {
+      border-radius: 4px; border: 1px solid #ccc; padding: 4px 8px; font-size: 16px;
+    }
+    select { background-color: #fff; cursor: pointer; }
+    button { cursor: pointer; margin-left: 4px; }
+    #printButton, #resetButton {
+      font-size: 20px; padding: 10px 16px; margin-top: 20px; border: none; border-radius: 6px;
+    }
+    #printButton { background-color: #1E3A5F; color: #fff; }
+    #printButton:disabled { background-color: #999; cursor: not-allowed; }
+    #resetButton { background-color: #e11d48; color: #fff; }
+
+    /* ACCESSORY ITEMS */
+    .accessoryItem { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .accessoryQty { width: 60px; }
+
+    /* PRINT TWEAKS: hide controls, make page clean */
+    @media print {
+      .hide-on-print { display: none !important; }
+      body { background: #fff; }
+      .container { max-width: 100%; padding: 0; }
+      @page { margin: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER SECTION -->
+    <div class="header">
+      <h1>TLS DMX TOOL</h1>
+    </div>
+
+    <!-- TOP INFORMATION -->
+    <div style="margin-bottom: 20px;">
+      <label for="salesman">Salesman:</label>
+      <input type="text" id="salesman" name="salesman" class="hide-on-print">
+
+      <label for="quoteDate" style="margin-left: 20px;">Quote Date:</label>
+      <input type="date" id="quoteDate" name="quoteDate" class="hide-on-print">
+
+      <label for="projectName" style="margin-left: 20px;">Project Name:</label>
+      <input type="text" id="projectName" name="projectName" class="hide-on-print">
+
+      <br><br>
+
+      <label for="quotedBy">Quoted By:</label>
+      <input type="text" id="quotedBy" name="quotedBy" class="hide-on-print">
+
+      <input type="checkbox" id="sameAsSalesman" class="hide-on-print">
+      <label for="sameAsSalesman" class="hide-on-print">Same as Salesman</label>
+    </div>
+
+    <!-- SYSTEM & QUANTITY SELECTION -->
+    <label for="systemSelect">Select a System:</label>
+    <select id="systemSelect" class="hide-on-print" onchange="updateTotal()">
+      <option value="">-- Select a System --</option>
+      <option value="A">TLS-DMX-SCENE 70 Basic</option>
+      <option value="B">TLS-DMX-SCENE 70 Basic Plus</option>
+      <option value="C">TLS-DMX-Dynamic-Basic</option>
+      <option value="D">TLS-DMX-Dynamic Basic Plus</option>
+    </select>
+
+    <label for="qtyInput">Quantity:</label>
+    <input type="number" id="qtyInput" value="1" min="1" class="hide-on-print" onchange="updateTotal()">
+
+    <!-- System Parts Table -->
+    <h2 style="margin-top: 20px;">SELECTED SYSTEM PARTS</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>QTY</th>
+          <th>PART #</th>
+          <th>DESCRIPTION</th>
+          <th>UNIT PRICE</th>
+          <th>TOTAL</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"><tr><td colspan="5" style="text-align:center;color:#777;">No system selected.</td></tr></tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="4">System Total</td>
+          <td id="grandTotal">$0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Accessories Section -->
+    <h2 style="margin-top:20px;">ACCESSORIES</h2>
+    <div id="accessoriesSection" style="margin-top: 10px;">
+      <div id="accessoriesContainer">
+        <div class="accessoryItem">
+          <select class="accessorySelect hide-on-print" onchange="updateTotal()"></select>
+          <input type="number" class="accessoryQty hide-on-print" value="1" min="1" onchange="updateTotal()">
+          <button type="button" class="hide-on-print" onclick="removeAccessory(this)">Remove</button>
+        </div>
+      </div>
+      <button type="button" class="hide-on-print" onclick="addAccessoryDropdown()">+</button>
+    </div>
+
+    <!-- Accessories Table -->
+    <div id="accessoriesTableContainer" style="display:none; margin-top:20px;">
+      <h2>SELECTED ACCESSORIES</h2>
+      <table id="accessoriesTable">
+        <thead>
+          <tr>
+            <th>QTY</th>
+            <th>PART #</th>
+            <th>DESCRIPTION</th>
+            <th>UNIT PRICE</th>
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Startup Option -->
+    <div class="hide-on-print" style="margin-top:20px;">
+      <label for="startupSelect" style="font-weight:bold;">STARTUP OPTION:</label>
+      <select id="startupSelect" onchange="updateStartupDetails(); updatePrintButtonState();">
+        <option value="">-- Select Startup Option --</option>
+      </select>
+    </div>
+
+    <!-- Startup Table -->
+    <div id="startupTableContainer" style="display:none; margin-top:20px;">
+      <h2>SELECTED STARTUP OPTION</h2>
+      <table id="startupTable">
+        <thead>
+          <tr>
+            <th>QTY</th>
+            <th>STARTUP OPTION</th>
+            <th>DESCRIPTION</th>
+            <th>UNIT PRICE</th>
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>System Capabilities</h2>
+    <ul id="capabilityList"><li style="color:#777;">No system selected.</li></ul>
+
+    <!-- Total Cost Table -->
+    <table style="width: 100%; margin-top: 20px;">
+      <tfoot>
+        <tr class="total-row">
+          <td style="text-align: right;">Total Cost</td>
+          <td style="text-align: right;" id="totalCost">$0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Actions -->
+    <div style="text-align: center;">
+      <button id="printButton" class="hide-on-print" onclick="printToPDF()" disabled>PRINT QUOTE</button>
+      <button id="resetButton" class="hide-on-print" onclick="resetForm()">RESET</button>
+    </div>
+  </div><!-- End .container -->
+
+  <script>
+    /***************
+     * DATA OBJECTS
+     ***************/
+    const systems = {
+      A: [
+        { part: "PWS-70P-W/B", desc: "Presidor Wall Station", price: 960.00 },
+        { part: "Triad JSU240-0750", desc: "Power Supply", price: 15.97 }
+      ],
+      B: [
+        { part: "PWS-70P-W/B", desc: "Presidor Wall Station", price: 960.00 },
+        { part: "CTRL-PNL-DMX-SPLIT-NEMA1-120V", desc: "DMX Splitter", price: 700.00 }
+      ],
+      C: [
+        { part: "PHAROS XPC 1", desc: "Pharos XPC 1 Controller", price: 671.25 },
+        { part: "CTRL-ACE-NEMA1-161606-24V-60W", desc: "Power Supply", price: 458.00 },
+        { part: "PHAROS XT 5 W/B", desc: "Pharos XT 5 W/B", price: 821.25 },
+        { part: "TI-PGM541 POE SWITCH", desc: "POE Switch", price: 125.00 }
+      ],
+      D: [
+        { part: "PHAROS XPC 1", desc: "Pharos XPC 1 Controller", price: 671.25 },
+        { part: "PHAROS XT 5 W/B", desc: "Pharos XT 5 W/B", price: 821.25 },
+        { part: "TI-PGM541 POE SWITCH", desc: "POE Switch", price: 125.00 },
+        { part: "CTRL-PNL-DMX-SPLIT-NEMA1-120V", desc: "DMX Splitter", price: 700.00 }
+      ]
+    };
+
+    const systemCapabilities = {
+      A: [
+        "Touch screen based (Single Gang) available in White or Black only.",
+        "User Programmable.",
+        "DMX Input for Theatrical console integration.",
+        "Can control up to 30 (1 to 4 channel) DMX devices in a single space",
+        "Provides up to 70 static scenes. Does not do change effects.",
+        "Has an integral time clock",
+        "Can Be controlled with Photocell using TLS-DMX-Photocell-KIT",
+        "Can be used in Multiway/Multilocation via CAT5 Daisy Chain. Max 9 additional stations.",
+        "For Each additional location than the Master include (1) TLS-DMX-SCENE-REMOTE-KIT-B"
+      ],
+      B: [
+        "Touch screen based (Single Gang) available in White or Black only.",
+        "User Programmable.",
+        "DMX Input for Theatrical console integration.",
+        "Can control up to 120 (1 to 4 channel) DMX devices in a single space",
+        "Provides up to 70 static scenes. Does not do change effects.",
+        "Has an integral time clock",
+        "Can Be controlled with Photocell using TLS-DMX-Photocell-KIT",
+        "Can be used in Multiway/Multilocation via CAT5 Daisy Chain. Max 9 additional stations.",
+        "For Each additional location than the Master include (1) TLS-DMX-SCENE-REMOTE-KIT-BP"
+      ],
+      C: [
+        "Can Support up to 3 5in or 8in Touch screen",
+        "Has App control",
+        "Provides Scenes and Dynamic Shows",
+        "Has an integral time clock",
+        "Can accommodate up to 3 multiway touch screen locations using TLS-DMX-DYNAMIC-TS",
+        "Requires On-Site Startup"
+      ],
+      D: [
+        "Can Support up to (3) 5in or 8in Touch screen",
+        "Has App control",
+        "Can control up to 120 (1 to 4 channel) DMX devices in a single space",
+        "Provides Scenes and Dynamic Shows",
+        "Has an integral time clock",
+        "Can accommodate up to 3 multiway control locations using TLS-DMX-SCENE-REMOTE-KIT-2",
+        "Requires On-Site Startup"
+      ]
+    };
+
+    const startupOptions = {
+      AB: ["$800 In House Startup", "$0 Salesman Self Startup", "$2600 On Site Startup"],
+      CD: ["$2600 Requires On Site Startup"]
+    };
+
+    const startupDetails = {
+      "$800 In House Startup": [
+        "System programming", "Bench testing", "Customer training via call"
+      ],
+      "$0 Salesman Self Startup": [
+        "Pre-programmed system", "Sales training", "Quick start guide"
+      ],
+      "$2600 Requires On Site Startup": [
+        "Technician on site", "Full system testing", "Staff training session"
+      ],
+      "$2600 On Site Startup": [
+        "Technician on site", "Full system testing", "Staff training session"
+      ]
+    };
+
+    const accessoryPrice = {
+      "TLS-DMX-SCENE-REMOTE-KIT": 960.00,
+      "TLS-DMX-Dynamic-REMOTE KIT": 671.25,
+      "TLS-DMX-010": 211.20,
+      "TLS-DMX-PADim": 211.20,
+      "TLS-DMX-FPDim": 211.20,
+      "TLS-DMX-DYNAMIC-SCREEN UPGRADE": 0,
+      "TLS-DMX-PhotoCell-KIT": 0
+    };
+
+    const getElement = id => document.getElementById(id);
+    const fmt = n => `$${Number(n || 0).toFixed(2)}`;
+
+    function openSystemLink() {
+      const system = getElement("systemSelect").value;
+      const links = {
+        A: "https://texaslighting.sharefile.com/public/share/web-s651768a16f50415392bde9915cd4c64e",
+        B: "https://texaslighting.sharefile.com/public/share/web-sb139fff16bd54a8ab417414cbdcd5cca",
+        C: "https://texaslighting.sharefile.com/public/share/web-se9308082d002492e928c9a464fbdb331",
+        D: "https://texaslighting.sharefile.com/public/share/web-se83737df88a24a44b4db61b4788deca6"
+      };
+      if (links[system]) window.open(links[system], "_blank");
+    }
+
+    /* ACCESSORIES */
+    const getAccessoryOptions = () => {
+      const system = getElement("systemSelect").value;
+      const base = [
+        { value: "", text: "-- Select Accessory --" },
+        { value: "TLS-DMX-SCENE-REMOTE-KIT", text: "$960.00 - TLS-DMX-SCENE-REMOTE-KIT" },
+        { value: "TLS-DMX-010",             text: "$211.20 - TLS-DMX-010" },
+        { value: "TLS-DMX-PADim",           text: "$211.20 - TLS-DMX-PADim" },
+        { value: "TLS-DMX-FPDim",           text: "$211.20 - TLS-DMX-FPDim" },
+        { value: "TLS-DMX-PhotoCell-KIT",   text: "$0.00 - TLS-DMX-PhotoCell-KIT" }
+      ];
+      if (system === "C" || system === "D") {
+        base.push({ value: "TLS-DMX-Dynamic-REMOTE KIT", text: "$671.25 - TLS-DMX-Dynamic-REMOTE KIT" });
+        base.push({ value: "TLS-DMX-DYNAMIC-SCREEN UPGRADE", text: "$0.00 - TLS-DMX-DYNAMIC-SCREEN UPGRADE" });
+      }
+      return base;
+    };
+
+    const isDynamicScreenUpgradeSelected = () => {
+      return Array.from(document.querySelectorAll(".accessoryItem"))
+        .some(item => item.querySelector(".accessorySelect").value === "TLS-DMX-DYNAMIC-SCREEN UPGRADE");
+    };
+
+    /* SYSTEM */
+    const loadSystem = () => {
+      const systemKey = getElement("systemSelect").value;
+      const tbody = getElement("tableBody");
+      if (!systemKey) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#777;">No system selected.</td></tr>`;
+        getElement("grandTotal").innerText = fmt(0);
+        getElement("capabilityList").innerHTML = `<li style="color:#777;">No system selected.</li>`;
+        loadStartupOptions(""); // clears startup options
+        calculateTotalCost();
+        return;
+      }
+      const qty = parseInt(getElement("qtyInput").value) || 1;
+      const parts = systems[systemKey].map(p => ({ ...p }));
+
+      // C/D: upgrade to 8" screen if dynamic screen upgrade accessory is selected
+      if ((systemKey === "C" || systemKey === "D") && isDynamicScreenUpgradeSelected()) {
+        parts.forEach(part => {
+          if (part.part === "PHAROS XT 5 W/B") {
+            Object.assign(part, { part: "PHAROS XT 8 W/B", desc: "Pharos XT 8 W/B", price: 1271.25 });
+          }
+        });
+      }
+
+      let grandTotal = 0;
+      const rows = parts.map(component => {
+        const total = component.price * qty;
+        grandTotal += total;
+        return `<tr>
+          <td>${qty}</td>
+          <td>${component.part}</td>
+          <td>${component.desc}</td>
+          <td>${fmt(component.price)}</td>
+          <td>${fmt(total)}</td>
+        </tr>`;
+      }).join("");
+      tbody.innerHTML = rows;
+      getElement("grandTotal").innerText = fmt(grandTotal);
+
+      loadStartupOptions(systemKey);
+
+      getElement("capabilityList").innerHTML =
+        systemCapabilities[systemKey].map(item => `<li>${item}</li>`).join("");
+
+      updateAllAccessorySelects();
+      calculateTotalCost();
+    };
+
+    /* STARTUP */
+    const loadStartupOptions = systemKey => {
+      const startupSelect = getElement("startupSelect");
+      startupSelect.innerHTML = "";
+      startupSelect.appendChild(new Option("-- Select Startup Option --", ""));
+      const opts = (systemKey === "A" || systemKey === "B")
+        ? startupOptions.AB
+        : (systemKey === "C" || systemKey === "D")
+          ? startupOptions.CD
+          : [];
+      opts.forEach(opt => startupSelect.appendChild(new Option(opt, opt)));
+      updateStartupDetails();
+      updatePrintButtonState();
+    };
+
+    const updateStartupDetails = () => {
+      updateStartupTable();
+      calculateTotalCost();
+    };
+
+    const updateStartupTable = () => {
+      const selected = getElement("startupSelect").value;
+      const tableBody = document.querySelector("#startupTable tbody");
+      if (!selected) {
+        getElement("startupTableContainer").style.display = "none";
+        tableBody.innerHTML = "";
+        return;
+      }
+      const qty = parseInt(getElement("qtyInput").value) || 1;
+      let unitPrice = 0, total = 0;
+      if (selected === "$800 In House Startup") {
+        unitPrice = 800; total = unitPrice * qty;
+      } else if (selected === "$0 Salesman Self Startup") {
+        unitPrice = 0; total = 0;
+      } else if (selected === "$2600 Requires On Site Startup" || selected === "$2600 On Site Startup") {
+        if (qty === 1) { unitPrice = 2600; total = 2600; }
+        else if (qty === 2) { unitPrice = 1900; total = 3800; }
+        else if (qty === 3) { unitPrice = Math.round(5000 / 3); total = 5000; }
+        else { unitPrice = "N/A"; total = "Get with Nathan for pricing"; }
+      }
+      const desc = startupDetails[selected] ? startupDetails[selected].join(", ") : "";
+      tableBody.innerHTML = `<tr>
+        <td>${qty}</td>
+        <td>${selected}</td>
+        <td>${desc}</td>
+        <td>${typeof unitPrice === "number" ? fmt(unitPrice) : unitPrice}</td>
+        <td>${typeof total === "number" ? fmt(total) : total}</td>
+      </tr>`;
+      getElement("startupTableContainer").style.display = "block";
+    };
+
+    const calculateTotalCost = () => {
+      const startupType = getElement("startupSelect").value;
+      const sysTotal = parseFloat((getElement("grandTotal").innerText || "$0").replace(/[^0-9.]/g, "")) || 0;
+      const qty = parseInt(getElement("qtyInput").value) || 1;
+      let startupCost = 0;
+      if (startupType === "$800 In House Startup") startupCost = 800 * qty;
+      else if (startupType === "$2600 Requires On Site Startup" || startupType === "$2600 On Site Startup") {
+        startupCost = (qty === 1) ? 2600 : (qty === 2) ? 3800 : (qty === 3) ? 5000 : "Get with Nathan for pricing";
+      }
+      const el = getElement("totalCost");
+      el.innerText = typeof startupCost === "string" ? startupCost : fmt(sysTotal + startupCost);
+    };
+
+    /* MISC */
+    const updateTotal = () => {
+      loadSystem();
+      updateAccessoriesTable();
+      updateStartupTable();
+      updatePrintButtonState();
+    };
+
+    const copySalesmanToQuotedBy = () => {
+      if (getElement("sameAsSalesman").checked) {
+        getElement("quotedBy").value = getElement("salesman").value;
+      }
+    };
+
+    const updateAllAccessorySelects = () => {
+      document.querySelectorAll(".accessoryItem").forEach(item => {
+        const select = item.querySelector(".accessorySelect");
+        const oldValue = select.value;
+        select.innerHTML = getAccessoryOptions().map(o => `<option value="${o.value}">${o.text}</option>`).join("");
+        select.value = oldValue || "";
+      });
+    };
+
+    const addAccessoryDropdown = () => {
+      const container = getElement("accessoriesContainer");
+      const newDiv = document.createElement("div");
+      newDiv.className = "accessoryItem";
+
+      const newSelect = document.createElement("select");
+      newSelect.className = "accessorySelect hide-on-print";
+      newSelect.onchange = updateTotal;
+      newSelect.innerHTML = getAccessoryOptions().map(o => `<option value="${o.value}">${o.text}</option>`).join("");
+
+      const qtyInput = document.createElement("input");
+      qtyInput.type = "number";
+      qtyInput.className = "accessoryQty hide-on-print";
+      qtyInput.value = "1";
+      qtyInput.min = "1";
+      qtyInput.onchange = updateTotal;
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "hide-on-print";
+      removeButton.textContent = "Remove";
+      removeButton.onclick = () => { newDiv.remove(); updateTotal(); };
+
+      newDiv.append(newSelect, qtyInput, removeButton);
+      container.appendChild(newDiv);
+      updateTotal();
+    };
+
+    const removeAccessory = btn => { btn.parentElement.remove(); updateTotal(); };
+
+    const updateAccessoriesTable = () => {
+      const rows = Array.from(document.querySelectorAll(".accessoryItem")).reduce((html, item) => {
+        const select = item.querySelector(".accessorySelect");
+        const qty = parseInt(item.querySelector(".accessoryQty").value) || 1;
+        if (select.value) {
+          const unit = accessoryPrice[select.value] || 0;
+          const total = unit * qty;
+          return html + `<tr>
+            <td>${qty}</td>
+            <td>${select.value}</td>
+            <td>${select.value}</td>
+            <td>${fmt(unit)}</td>
+            <td>${fmt(total)}</td>
+          </tr>`;
+        }
+        return html;
+      }, "");
+      const tbody = document.querySelector("#accessoriesTable tbody");
+      tbody.innerHTML = rows;
+      getElement("accessoriesTableContainer").style.display = rows ? "block" : "none";
+      calculateTotalCost();
+    };
+
+    const printToPDF = () => {
+      // Require startup choice; this was causing "won't print" if not selected
+      if (!getElement("startupSelect").value) {
+        alert("Please select a Startup option before printing the quote.");
+        return;
+      }
+      // Open the system link (may be blocked by pop-up settings; that's life on the web)
+      openSystemLink();
+      // Delay print a hair to avoid pop-up/print race conditions
+      setTimeout(() => window.print(), 100);
+    };
+
+    const updatePrintButtonState = () => {
+      getElement("printButton").disabled = !getElement("startupSelect").value;
+    };
+
+    const resetForm = () => {
+      // inputs
+      getElement("salesman").value = "";
+      getElement("quoteDate").value = "";
+      getElement("projectName").value = "";
+      getElement("quotedBy").value = "";
+      getElement("sameAsSalesman").checked = false;
+
+      // system + qty
+      getElement("systemSelect").value = "";
+      getElement("qtyInput").value = 1;
+
+      // accessories: reset to single blank row
+      const container = getElement("accessoriesContainer");
+      container.innerHTML = "";
+      const row = document.createElement("div");
+      row.className = "accessoryItem";
+      row.innerHTML = `
+        <select class="accessorySelect hide-on-print" onchange="updateTotal()"></select>
+        <input type="number" class="accessoryQty hide-on-print" value="1" min="1" onchange="updateTotal()">
+        <button type="button" class="hide-on-print" onclick="removeAccessory(this)">Remove</button>
+      `;
+      container.appendChild(row);
+
+      // tables + totals
+      document.querySelector("#tableBody").innerHTML =
+        `<tr><td colspan="5" style="text-align:center;color:#777;">No system selected.</td></tr>`;
+      getElement("grandTotal").innerText = fmt(0);
+      document.querySelector("#accessoriesTable tbody").innerHTML = "";
+      getElement("accessoriesTableContainer").style.display = "none";
+
+      // startup
+      getElement("startupSelect").innerHTML = `<option value="">-- Select Startup Option --</option>`;
+      getElement("startupTableContainer").style.display = "none";
+      document.querySelector("#startupTable tbody").innerHTML = "";
+
+      // capabilities + total
+      getElement("capabilityList").innerHTML = `<li style="color:#777;">No system selected.</li>`;
+      getElement("totalCost").innerText = fmt(0);
+
+      // print button
+      updateAllAccessorySelects();
+      updatePrintButtonState();
+    };
+
+    /**********************
+     * INITIALIZE ON LOAD
+     **********************/
+    document.addEventListener("DOMContentLoaded", () => {
+      // default accessory options
+      updateAllAccessorySelects();
+      // keep "Quoted By" synced if checkbox is checked
+      getElement("sameAsSalesman").addEventListener("change", copySalesmanToQuotedBy);
+      getElement("salesman").addEventListener("input", copySalesmanToQuotedBy);
+      // start in a clean state
+      resetForm();
+    });
+  </script>
+</body>
+</html>
